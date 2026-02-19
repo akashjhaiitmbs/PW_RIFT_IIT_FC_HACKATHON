@@ -572,4 +572,327 @@
   .delay-600 {
     animation-delay: 0.6s;
   }
+
+  /* ── Gene Card ── */
+  .gene-card-wrapper {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .gene-card {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-left: 3px solid #9CA3AF;
+    border-radius: 16px;
+    padding: 20px 24px;
+    cursor: pointer;
+    transition: all 0.22s ease;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .gene-card:hover {
+    border-color: #BFDBFE;
+    box-shadow: 0 4px 20px rgba(30, 58, 138, 0.1);
+    transform: translateY(-2px);
+  }
+
+  .gene-card-expand {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .gene-card-expand.open {
+    max-height: 2000px;
+  }
+
+  .gene-card-expand-inner {
+    padding: 16px 24px 24px;
+    background: #F8FBFF;
+    border: 1px solid #E2E8F0;
+    border-top: none;
+    border-radius: 0 0 16px 16px;
+  }
+
+  /* ── Gene Track ── */
+  .gene-track-container {
+    padding: 16px 0;
+  }
+
+  .gene-track {
+    position: relative;
+    height: 20px;
+    background: linear-gradient(90deg, #E2E8F0 0%, #D1D5DB 50%, #E2E8F0 100%);
+    border-radius: 4px;
+    overflow: visible;
+  }
+
+  .gene-track-patient {
+    background: linear-gradient(90deg, #DBEAFE 0%, #BFDBFE 50%, #DBEAFE 100%);
+    overflow: visible;
+  }
+
+  .gene-exon {
+    position: absolute;
+    top: 2px;
+    height: 16px;
+    background: rgba(30, 58, 138, 0.15);
+    border-radius: 3px;
+  }
+
+  .gene-track-patient .gene-exon {
+    background: rgba(30, 58, 138, 0.25);
+  }
+
+  /* ── Variant Pins ── */
+  .variant-pin-group {
+    position: absolute;
+    top: -14px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    z-index: 2;
+  }
+
+  .variant-pin-head {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    transition: transform 0.15s ease;
+  }
+
+  .variant-pin-group:hover .variant-pin-head {
+    transform: scale(1.4);
+  }
+
+  .variant-pin-stem {
+    width: 2px;
+    height: 16px;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 1px;
+  }
+
+  /* ── Variant Tooltip ── */
+  .variant-tooltip {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 160px;
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    z-index: 50;
+    pointer-events: none;
+    animation: fadeUp 0.15s ease;
+  }
+
+  .variant-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #FFFFFF;
+  }
+
+  /* ── LLM Panel ── */
+  .llm-panel {
+    background: linear-gradient(135deg, #F5F3FF, #EDE9FE);
+    border: 1px solid #C4B5FD;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .llm-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #C4B5FD;
+    background: rgba(139, 92, 246, 0.06);
+  }
+
+  .llm-panel-body {
+    padding: 20px;
+  }
+
+  .llm-panel-sources {
+    padding: 0 20px 16px;
+    border-top: 1px solid #DDD6FE;
+    margin-top: -4px;
+    padding-top: 16px;
+  }
+
+  .llm-panel-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid #C4B5FD;
+    background: rgba(139, 92, 246, 0.04);
+  }
+
+  .llm-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid #C4B5FD;
+    background: #FFFFFF;
+    color: #5B21B6;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .llm-btn:hover {
+    background: #EDE9FE;
+    border-color: #8B5CF6;
+  }
+
+  .llm-btn-flag:hover {
+    background: #FEF2F2;
+    border-color: #FCA5A5;
+    color: #DC2626;
+  }
+
+  .llm-btn-flagged {
+    background: #FEF2F2;
+    border-color: #FCA5A5;
+    color: #DC2626;
+  }
+
+  /* ── Phenoconversion Panel ── */
+  .phenoconv-container {
+    background: #FFFBEB;
+    border: 1px solid #FDE68A;
+    border-radius: 16px;
+    padding: 20px;
+  }
+
+  .phenoconv-grid {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 16px;
+  }
+
+  .phenoconv-box {
+    flex: 1;
+    background: #FFFFFF;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .phenoconv-box-clinical {
+    background: #FFFEF5;
+  }
+
+  .phenoconv-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+  }
+
+  .phenoconv-arrow-line {
+    width: 2px;
+    height: 24px;
+    background: #FDE68A;
+    border-radius: 1px;
+  }
+
+  .phenoconv-arrow-head {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #D97706;
+    line-height: 1;
+  }
+
+  .phenoconv-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 16px;
+    background: #FEF3C7;
+    border: 1px solid #FDE68A;
+    border-radius: 10px;
+  }
+
+  /* ── Drug Risk Row ── */
+  .drug-risk-row-wrapper {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.22s ease;
+  }
+
+  .drug-risk-row-wrapper:hover {
+    border-color: #BFDBFE;
+    box-shadow: 0 4px 16px rgba(30, 58, 138, 0.06);
+  }
+
+  .drug-risk-row {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: transparent;
+    border: none;
+    border-left: 3px solid #9CA3AF;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: background 0.18s ease;
+  }
+
+  .drug-risk-row:hover {
+    background: #F8FBFF;
+  }
+
+  .drug-risk-expand {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .drug-risk-expand.open {
+    max-height: 3000px;
+  }
+
+  .drug-risk-expand-inner {
+    padding: 0 20px 24px;
+    border-top: 1px solid #E2E8F0;
+  }
+
+  /* ── Pin pulse animation ── */
+  @keyframes pinPulse {
+
+    0%,
+    100% {
+      box-shadow: 0 0 0 3px currentColor;
+    }
+
+    50% {
+      box-shadow: 0 0 0 6px transparent;
+    }
+  }
 }

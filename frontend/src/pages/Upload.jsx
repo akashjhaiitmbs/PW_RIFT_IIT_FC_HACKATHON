@@ -1,12 +1,12 @@
 import { useState, useRef, useCallback } from 'react';
 import Navbar from '../components/Navbar.jsx';
-import { uploadVCF, runAnalysis } from '../api.js';
+import { analyzeVCF } from '../api.js';
 
 const SUPPORTED_DRUGS = ['CODEINE', 'WARFARIN', 'CLOPIDOGREL', 'SIMVASTATIN', 'AZATHIOPRINE', 'FLUOROURACIL'];
 const KNOWN_MEDS = ['PAROXETINE', 'FLUOXETINE', 'BUPROPION', 'DULOXETINE', 'TERBINAFINE', 'OMEPRAZOLE', 'FLUVOXAMINE', 'RIFAMPIN', 'FLUCONAZOLE', 'AMIODARONE'];
 
 const PIPELINE_STEPS = [
-    { id: 1, label: 'Parsing VCF file' },
+    { id: 1, label: 'Uploading & parsing VCF file' },
     { id: 2, label: 'Calling genotyper across 7 genes' },
     { id: 3, label: 'Computing metabolizer activity scores' },
     { id: 4, label: 'Checking drug interaction effects' },
@@ -45,19 +45,19 @@ function PipelineLoader({ step }) {
                             <div
                                 key={s.id}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${state === 'done' ? 'bg-green-50 border border-green-200' :
-                                        state === 'active' ? 'bg-[#EFF6FF] border border-[#BFDBFE]' :
-                                            'border border-transparent opacity-40'
+                                    state === 'active' ? 'bg-[#EFF6FF] border border-[#BFDBFE]' :
+                                        'border border-transparent opacity-40'
                                     }`}
                             >
                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${state === 'done' ? 'bg-green-100 text-green-600' :
-                                        state === 'active' ? 'bg-[#DBEAFE] text-[#1E3A8A] step-spin' :
-                                            'bg-[#F0F6FF] text-[#9CA3AF]'
+                                    state === 'active' ? 'bg-[#DBEAFE] text-[#1E3A8A] step-spin' :
+                                        'bg-[#F0F6FF] text-[#9CA3AF]'
                                     }`}>
                                     {state === 'done' ? '✓' : state === 'active' ? '↻' : s.id}
                                 </div>
                                 <span className={`text-sm font-medium ${state === 'done' ? 'text-green-700' :
-                                        state === 'active' ? 'text-[#1E3A8A]' :
-                                            'text-[#9CA3AF]'
+                                    state === 'active' ? 'text-[#1E3A8A]' :
+                                        'text-[#9CA3AF]'
                                     }`}>
                                     {s.label}
                                 </span>
@@ -100,24 +100,41 @@ export default function Upload({ onNavigate, onResults }) {
     const handleSubmit = async () => {
         if (!file) return showToast('Please select a VCF file.');
         if (selectedDrugs.length === 0) return showToast('Select at least one drug to analyze.');
-        setLoading(true); setPipelineStep(1);
+
+        setLoading(true);
+        setPipelineStep(1);
+
+        // Simulate pipeline progress while the single API call runs
+        let step = 1;
+        const ticker = setInterval(() => {
+            step = Math.min(step + 1, 6);
+            setPipelineStep(step);
+        }, 700);
+
         try {
-            const uploadData = await uploadVCF({ file, patientCode });
-            setPipelineStep(2);
-            let step = 2;
-            const ticker = setInterval(() => { step = Math.min(step + 1, 6); setPipelineStep(step); }, 650);
-            const analysisData = await runAnalysis({
-                vcfUploadId: uploadData.vcf_upload_id,
+            // Single call — uploads VCF + runs analysis in one request
+            const data = await analyzeVCF({
+                file,
+                patientCode,
                 drugs: selectedDrugs,
                 concurrentMedications: selectedMeds,
             });
-            clearInterval(ticker); setPipelineStep(7);
-            await new Promise(r => setTimeout(r, 700));
-            const results = Array.isArray(analysisData.results) ? analysisData.results : [analysisData.results];
-            onResults(results, uploadData);
+
+            clearInterval(ticker);
+            setPipelineStep(7);
+            await new Promise(r => setTimeout(r, 600));
+
+            const results = Array.isArray(data.results) ? data.results : [data.results];
+            onResults(results, {
+                patient_code: data.patient_code,
+                patient_id: data.patient_id,
+                total_variants_found: data.total_variants_parsed,
+            }, data.gene_panel || []);
         } catch (err) {
+            clearInterval(ticker);
             showToast(err.message || 'Analysis failed. Check console.');
-            setLoading(false); setPipelineStep(0);
+            setLoading(false);
+            setPipelineStep(0);
         }
     };
 

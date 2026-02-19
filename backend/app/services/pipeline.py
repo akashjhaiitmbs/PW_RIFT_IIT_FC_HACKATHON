@@ -46,6 +46,24 @@ from app.services.llm_service import LLMExplainer
 # ── phenotype severity ordering (worst = lowest index) ──────────────────────
 _PHENOTYPE_SEVERITY = {"PM": 0, "IM": 1, "NM": 2, "RM": 3, "UM": 4, "Unknown": 5}
 
+# Star alleles known to cause loss or reduced function (subset for our 6 drugs)
+_LOF_ALLELES = {"*3", "*4", "*5", "*6", "*7", "*8", "*2A", "*4A", "*4B"}
+_REDUCED_ALLELES = {"*2", "*9", "*10", "*17", "*29", "*41"}
+
+
+def _variant_impact(star_allele: Optional[str]) -> str:
+    """Classify star allele into functional impact for the UI variant pins."""
+    if not star_allele:
+        return "normal_function"
+    sa = star_allele.strip().upper()
+    for lof in _LOF_ALLELES:
+        if lof.upper() in sa:
+            return "loss_of_function"
+    for red in _REDUCED_ALLELES:
+        if red.upper() in sa:
+            return "reduced_function"
+    return "normal_function"
+
 
 def _worse_phenotype(a: str, b: str) -> str:
     """Return the phenotype with lower activity (more severe)."""
@@ -344,21 +362,26 @@ def _build_result(
             "risk_label": risk_row.risk_label,
             "confidence_score": risk_row.confidence_score,
             "severity": risk_row.severity,
+            "phenoconversion_occurred": risk_row.phenoconversion_occurred,
         },
         "pharmacogenomic_profile": {
             "primary_gene": risk_row.primary_gene,
             "diplotype": risk_row.diplotype,
             "phenotype": risk_row.clinical_phenotype,
+            "genetic_phenotype": risk_row.genetic_phenotype,
+            "active_inhibitor": risk_row.active_inhibitor or None,
             "detected_variants": [
                 {
                     "rsid": v.get("rsid"),
                     "gene": v.get("gene"),
+                    "chromosome": v.get("chromosome"),
                     "position": v.get("position"),
                     "ref": v.get("ref_allele"),
                     "alt": v.get("alt_allele"),
                     "genotype": v.get("genotype"),
                     "star_allele": v.get("star_allele"),
                     "filter": v.get("filter_status"),
+                    "functional_impact": _variant_impact(v.get("star_allele")),
                 }
                 for v in gene_variants
             ],

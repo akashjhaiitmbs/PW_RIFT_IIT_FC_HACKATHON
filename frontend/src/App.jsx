@@ -7,12 +7,14 @@ export default function App() {
   const [view, setView] = useState('home');
   const [results, setResults] = useState([]);
   const [uploadData, setUploadData] = useState(null);
+  const [genePanel, setGenePanel] = useState([]);
 
   const navigate = (to) => setView(to);
 
-  const handleResults = (res, upload) => {
+  const handleResults = (res, upload, genes = []) => {
     setResults(res);
     setUploadData(upload);
+    setGenePanel(genes);
     setView('results');
   };
 
@@ -21,6 +23,7 @@ export default function App() {
       <Results
         results={results}
         uploadData={uploadData}
+        genePanel={genePanel}
         onNavigate={navigate}
       />
     );

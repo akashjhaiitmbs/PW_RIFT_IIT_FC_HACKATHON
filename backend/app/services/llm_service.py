@@ -1,46 +1,124 @@
 """
 LLM Explanation Service — called ONCE per drug, only after all
 deterministic risk logic is saved.  The LLM cannot alter risk_analyses.
+
+Uses the OpenAI Python SDK (works with both Azure OpenAI and standard OpenAI).
+Configure via app/config.py or .env:
+
+  OPENAI_API_TYPE=azure                         # "azure" | "openai"
+  AZURE_OPENAI_ENDPOINT=https://...             # Azure only
+  AZURE_OPENAI_API_KEY=sk-...
+  AZURE_OPENAI_API_VERSION=2025-01-01-preview
+  AZURE_OPENAI_DEPLOYMENT=gpt-5                 # deployment name in Azure
 """
 from __future__ import annotations
+import logging
 import time
-import json
+import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.llm_explanation import LLMExplanation
-import uuid
-from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Build the OpenAI client (Azure OR standard OpenAI)
+# ---------------------------------------------------------------------------
+def _make_client():
+    """Return an openai.AsyncAzureOpenAI or openai.AsyncOpenAI client."""
+    try:
+        import openai  # type: ignore
+    except ImportError as exc:
+        raise ImportError(
+            "openai package not installed. Run: pip install openai"
+        ) from exc
+
+    if settings.OPENAI_API_TYPE.lower() == "azure":
+        return openai.AsyncAzureOpenAI(
+            azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+            api_key=settings.AZURE_OPENAI_API_KEY,
+            api_version=settings.AZURE_OPENAI_API_VERSION,
+        )
+    else:
+        return openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+
+
+def _model_name() -> str:
+    """Return the model/deployment name to pass to the API."""
+    if settings.OPENAI_API_TYPE.lower() == "azure":
+        return settings.AZURE_OPENAI_DEPLOYMENT
+    return settings.OPENAI_MODEL
 
 
 # ---------------------------------------------------------------------------
-# ChromaDB RAG helper
+# ChromaDB RAG helper  (semantic search via embeddings)
 # ---------------------------------------------------------------------------
 def _rag_retrieve(drug: str, clinical_phenotype: str, gene: str) -> List[str]:
     """
-    Retrieve top-3 context chunks from ChromaDB cpic_guidelines collection.
-    Returns empty list if ChromaDB is unavailable.
+    Embed the query and do a cosine-similarity search against the
+    ChromaDB cpic_guidelines collection.
+    Returns top-5 relevant text chunks, filtered to the drug where possible.
+    Falls back to empty list if ChromaDB or embeddings are unavailable.
     """
     try:
         import chromadb  # type: ignore
+        from app.services.cpic_ingestion import _make_sync_openai_client, _embedding_model_name
 
-        client = chromadb.HttpClient(host=settings.CHROMA_HOST, port=settings.CHROMA_PORT)
-        collection = client.get_collection(settings.CHROMA_COLLECTION)
-        query = f"{drug} {clinical_phenotype} {gene} metabolism guideline"
-        results = collection.query(query_texts=[query], n_results=3)
+        # Build a rich query that captures the clinical context
+        query = (
+            f"{drug} {gene} {clinical_phenotype} metabolism guideline "
+            f"dosing recommendation phenoconversion CPIC"
+        )
+
+        # Embed the query
+        oa_client = _make_sync_openai_client()
+        embed_resp = oa_client.embeddings.create(
+            model=_embedding_model_name(),
+            input=[query],
+        )
+        query_embedding = embed_resp.data[0].embedding
+
+        # Query ChromaDB with vector + optional drug filter
+        chroma_client = chromadb.HttpClient(
+            host=settings.CHROMA_HOST,
+            port=settings.CHROMA_PORT,
+        )
+        collection = chroma_client.get_collection(settings.CHROMA_COLLECTION)
+
+        # Try drug-filtered search first (more relevant)
+        try:
+            results = collection.query(
+                query_embeddings=[query_embedding],
+                n_results=5,
+                where={"drug": drug.upper()},
+            )
+            docs = results.get("documents", [[]])[0]
+            if docs:
+                return docs
+        except Exception:
+            pass
+
+        # Fall back to unfiltered search
+        results = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=5,
+        )
         docs = results.get("documents", [[]])[0]
         return docs if docs else []
-    except Exception:
+
+    except Exception as exc:
+        logger.warning("RAG retrieval failed (non-fatal): %s", exc)
         return []
 
 
 # ---------------------------------------------------------------------------
 # Prompt builder
 # ---------------------------------------------------------------------------
-def _build_prompt(
+def _build_messages(
     context_chunks: List[str],
     gene: str,
     diplotype: str,
@@ -50,18 +128,22 @@ def _build_prompt(
     risk_label: str,
     phenoconversion_occurred: bool,
     active_inhibitor: Optional[str],
-) -> str:
+) -> List[Dict[str, str]]:
     context_text = "\n\n".join(context_chunks) if context_chunks else "No guideline excerpts available."
     inhibitor_note = (
         f"active inhibitor: {active_inhibitor}" if active_inhibitor else "no active inhibitors"
     )
 
-    return f"""SYSTEM:
-You are PharmaGuard AI, a Clinical Pharmacogenomics assistant. You explain drug-gene interactions to healthcare providers. You must answer ONLY using the provided guideline excerpts. If information is not in the excerpts, say "Insufficient guideline data available."
+    system_prompt = (
+        "You are PharmaGuard AI, a Clinical Pharmacogenomics assistant. "
+        "You explain drug-gene interactions to healthcare providers. "
+        "You must answer ONLY using the provided guideline excerpts. "
+        "If information is not in the excerpts, say \"Insufficient guideline data available.\"\n\n"
+        "Never recommend a specific prescription decision. "
+        "Use language like \"Guidelines suggest considering...\" or \"Evidence supports...\"."
+    )
 
-Never recommend a specific prescription decision. Use language like "Guidelines suggest considering..." or "Evidence supports...".
-
-CONTEXT (Retrieved CPIC Guidelines):
+    user_prompt = f"""CONTEXT (Retrieved CPIC Guidelines):
 {context_text}
 
 PATIENT DATA:
@@ -73,7 +155,6 @@ PATIENT DATA:
 - Risk Label: {risk_label}
 - Phenoconversion occurred: {phenoconversion_occurred} ({inhibitor_note})
 
-USER:
 Generate a clinical explanation with exactly these four sections:
 1. SUMMARY: 1-2 sentence high-level alert for a clinician.
 2. MECHANISM: Explain the biological reason why this drug-gene combination produces this risk.
@@ -81,12 +162,17 @@ Generate a clinical explanation with exactly these four sections:
 4. PHENOCONVERSION NOTE: If phenoconversion occurred, explain how {active_inhibitor or 'the inhibitor'} changed the effective phenotype. If not, write "Not applicable."
 """
 
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
 
 # ---------------------------------------------------------------------------
 # Response parser
 # ---------------------------------------------------------------------------
 def _parse_llm_response(text: str) -> Dict[str, str]:
-    sections = {
+    sections: Dict[str, str] = {
         "summary": "",
         "mechanism": "",
         "guideline": "",
@@ -105,7 +191,6 @@ def _parse_llm_response(text: str) -> Dict[str, str]:
         if idx == -1:
             continue
         start = idx + len(marker)
-        # Find next marker
         next_idx = len(remaining)
         for j, (next_marker, _) in enumerate(markers):
             if j <= i:
@@ -116,38 +201,6 @@ def _parse_llm_response(text: str) -> Dict[str, str]:
         sections[key] = remaining[start:next_idx].strip()
         remaining = remaining[next_idx:]
     return sections
-
-
-# ---------------------------------------------------------------------------
-# LLM call
-# ---------------------------------------------------------------------------
-def _call_llm(prompt: str) -> Dict[str, Any]:
-    """Call Ollama-compatible endpoint. Returns raw response dict."""
-    payload = {
-        "model": settings.LLM_MODEL,
-        "prompt": prompt,
-        "stream": False,
-    }
-    t0 = time.time()
-    try:
-        resp = httpx.post(settings.LLM_ENDPOINT, json=payload, timeout=120.0)
-        resp.raise_for_status()
-        data = resp.json()
-        elapsed_ms = int((time.time() - t0) * 1000)
-        return {
-            "text": data.get("response", ""),
-            "prompt_tokens": data.get("prompt_eval_count"),
-            "completion_tokens": data.get("eval_count"),
-            "generation_time_ms": elapsed_ms,
-        }
-    except Exception as exc:
-        elapsed_ms = int((time.time() - t0) * 1000)
-        return {
-            "text": f"LLM unavailable: {exc}",
-            "prompt_tokens": None,
-            "completion_tokens": None,
-            "generation_time_ms": elapsed_ms,
-        }
 
 
 # ---------------------------------------------------------------------------
@@ -167,11 +220,11 @@ class LLMExplainer:
         phenoconversion_occurred: bool,
         active_inhibitor: Optional[str],
     ) -> LLMExplanation:
-        # Step 1 — RAG
+        # Step 1 — RAG (optional; graceful no-op if ChromaDB unavailable)
         chunks = _rag_retrieve(drug_name, clinical_phenotype, gene)
 
-        # Step 2 — Prompt
-        prompt = _build_prompt(
+        # Step 2 — Build chat messages
+        messages = _build_messages(
             context_chunks=chunks,
             gene=gene,
             diplotype=diplotype or "Unknown",
@@ -183,23 +236,47 @@ class LLMExplainer:
             active_inhibitor=active_inhibitor,
         )
 
-        # Step 3 — LLM call
-        llm_resp = _call_llm(prompt)
-        parsed = _parse_llm_response(llm_resp["text"])
+        # Step 3 — Call LLM via OpenAI SDK
+        raw_text = ""
+        prompt_tokens: Optional[int] = None
+        completion_tokens: Optional[int] = None
+        generation_time_ms: int = 0
+        model_used = f"{settings.OPENAI_API_TYPE}:{_model_name()}"
 
-        # Step 4 — Save
+        t0 = time.time()
+        try:
+            client = _make_client()
+            response = await client.chat.completions.create(
+                model=_model_name(),
+                messages=messages,  # type: ignore[arg-type]
+                temperature=0.3,
+                max_tokens=800,
+            )
+            generation_time_ms = int((time.time() - t0) * 1000)
+            raw_text = response.choices[0].message.content or ""
+            if response.usage:
+                prompt_tokens = response.usage.prompt_tokens
+                completion_tokens = response.usage.completion_tokens
+        except Exception as exc:
+            generation_time_ms = int((time.time() - t0) * 1000)
+            raw_text = f"LLM unavailable: {exc}"
+
+        # Step 4 — Parse sections
+        parsed = _parse_llm_response(raw_text)
+
+        # Step 5 — Persist
         record = LLMExplanation(
             id=uuid.uuid4(),
             risk_analysis_id=risk_analysis_id,
-            summary=parsed["summary"],
+            summary=parsed["summary"] or raw_text[:500],
             mechanism_explanation=parsed["mechanism"],
             guideline_quote=parsed["guideline"],
             phenoconversion_note=parsed["phenoconversion_note"],
             retrieved_context_chunks={"chunks": chunks},
-            llm_model_used=settings.LLM_MODEL,
-            prompt_tokens=llm_resp.get("prompt_tokens"),
-            completion_tokens=llm_resp.get("completion_tokens"),
-            generation_time_ms=llm_resp.get("generation_time_ms"),
+            llm_model_used=model_used,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            generation_time_ms=generation_time_ms,
             created_at=datetime.now(timezone.utc),
         )
         db.add(record)

@@ -18,19 +18,19 @@ const FEATURES = [
         icon: '⚡',
         tag: 'Real-Time Safety',
         title: 'Catch Drug Interactions Before They Happen',
-        desc: 'PharmaGuard detects when a co-prescribed drug shifts a patient\'s effective phenotype — turning a safe dose into a dangerous one. We catch it first.',
+        desc: 'Our Multi-Drug Interaction Matrix detects when a co-prescribed drug shifts a patient\'s effective phenotype — turning a safe dose into a dangerous one.',
     },
     {
-        icon: '📋',
-        tag: 'Clinical Guidance',
-        title: 'CPIC-Compliant Recommendations',
-        desc: 'Every recommendation is grounded in peer-reviewed CPIC clinical guidelines. Actionable dosing guidance and evidence-backed alternatives, right at your fingertips.',
+        icon: '🧮',
+        tag: 'Interactive Dosing',
+        title: 'Built-in Dose Calculator',
+        desc: 'Input standard clinical doses directly into the results panel, and PharmaGuard automatically adjusts them based on the specific PGx risk modifier.',
     },
     {
-        icon: '🎯',
-        tag: 'Confidence Scoring',
-        title: 'Know How Sure You Can Be',
-        desc: 'Every result comes with a transparent confidence score — so you always know the quality of the data behind the recommendation before you act on it.',
+        icon: '👶',
+        tag: 'Clinical Demographics',
+        title: 'Pediatric & Pregnancy Tailored',
+        desc: 'Enzyme maturation and induction fluctuate across patient life stages. Our tool instantly flags these changes for pediatric and pregnant patients.',
     },
     {
         icon: '🔒',
@@ -40,13 +40,6 @@ const FEATURES = [
     },
 ];
 
-/* ── Team data — add your details here ── */
-const TEAM = [
-    { emoji: '👨‍💻', name: 'Team Member 1', role: 'AI & Backend Engineer' },
-    { emoji: '👩‍🔬', name: 'Team Member 2', role: 'Bioinformatics Lead' },
-    { emoji: '👨‍🎨', name: 'Team Member 3', role: 'Frontend & UX' },
-    { emoji: '👩‍⚕️', name: 'Team Member 4', role: 'Clinical Advisor' },
-];
 
 /* ── Stats ── */
 const STATS = [
@@ -192,36 +185,17 @@ export default function Home({ onNavigate }) {
             </section>
 
             {/* ════════════════════════════════════════════
-          SECTION 3 — TEAM
+          SECTION 3 — RECOGNITION
           ════════════════════════════════════════════ */}
-            <section className="px-6 py-20">
+            <section className="px-6 py-20 pb-32">
                 <div className="max-w-4xl mx-auto">
-                    <div className="text-center mb-14">
-                        <div className="section-label mb-3">The People Behind It</div>
+                    <div className="text-center mb-10">
                         <h2
                             className="text-[#0F172A]"
                             style={{ fontSize: 'clamp(1.8rem, 3vw, 2.6rem)', fontWeight: 800 }}
                         >
-                            Built by a Team That Cares
+                            Recognized For Excellence
                         </h2>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
-                        {TEAM.map((member, i) => (
-                            <div key={i} className="team-card">
-                                {/* Photo placeholder */}
-                                <div className="avatar-ring">
-                                    <span style={{ fontSize: '2rem' }}>{member.emoji}</span>
-                                </div>
-                                <div
-                                    className="font-bold text-[#0F172A] mb-1"
-                                    style={{ fontFamily: 'Fraunces, Georgia, serif', fontSize: '1rem' }}
-                                >
-                                    {member.name}
-                                </div>
-                                <div className="text-xs font-medium text-[#3B82F6]">{member.role}</div>
-                            </div>
-                        ))}
                     </div>
 
                     {/* Hackathon badge */}

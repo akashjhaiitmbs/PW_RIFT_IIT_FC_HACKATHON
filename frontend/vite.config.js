@@ -7,4 +7,14 @@ export default defineConfig({
     tailwindcss(),
     react(),
   ],
+  server: {
+    host: true,
+    port: process.env.PORT ? parseInt(process.env.PORT) : 5173,
+    strictPort: true,
+  },
+  preview: {
+    host: true,
+    port: process.env.PORT ? parseInt(process.env.PORT) : 4173,
+    strictPort: true,
+  }
 })

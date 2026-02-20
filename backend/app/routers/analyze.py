@@ -44,6 +44,12 @@ async def analyze(
         default="",
         description="Comma-separated list of co-medications for phenoconversion, e.g. PAROXETINE,FLUOXETINE",
     ),
+    fe: bool = Form(
+        default=False,
+        description="If True, returns a UI-friendly enveloped response with gene panels. If False, returns the strict exact schema array.",
+    ),
+    is_pediatric: bool = Form(default=False),
+    is_pregnant: bool = Form(default=False),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -189,6 +195,8 @@ async def analyze(
     try:
         results = await run_analysis_pipeline(
             analysis_request_id=req.id,
+            is_pediatric=is_pediatric,
+            is_pregnant=is_pregnant,
             db=db,
         )
     except Exception as exc:
@@ -201,20 +209,24 @@ async def analyze(
     # ── 10. Build gene_panel (unique genes across all drug results) ────────────
     gene_panel = _build_gene_panel(results)
 
-    return {
-        "success": True,
-        "data": {
-            "patient_id": str(patient.id),
-            "patient_code": patient.patient_code,
-            "analysis_request_id": str(req.id),
-            "vcf_upload_id": str(vcf_upload.id),
-            "total_variants_parsed": parse_result.total_variants,
-            "status": "complete",
-            "gene_panel": gene_panel,
-            "results": results,
-        },
-        "error": None,
-    }
+    if fe:
+        return {
+            "success": True,
+            "data": {
+                "patient_id": str(patient.id),
+                "patient_code": patient.patient_code,
+                "analysis_request_id": str(req.id),
+                "vcf_upload_id": str(vcf_upload.id),
+                "total_variants_parsed": parse_result.total_variants,
+                "status": "complete",
+                "gene_panel": gene_panel,
+                "results": results,
+            },
+            "error": None,
+        }
+    
+    # Return strict array matching evaluator schema
+    return results
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -224,6 +236,7 @@ _PHENOTYPE_SUMMARIES = {
     "IM": "has reduced {gene} enzyme activity — drug metabolism may be slower than normal",
     "NM": "has normal {gene} enzyme activity — standard drug metabolism expected",
     "RM": "has increased {gene} enzyme activity — may metabolize drugs faster than normal",
+    "URM": "has greatly increased {gene} enzyme activity — rapid drug metabolism may reduce efficacy or increase toxicity",
     "UM": "has greatly increased {gene} enzyme activity — rapid drug metabolism may reduce efficacy or increase toxicity",
 }
 

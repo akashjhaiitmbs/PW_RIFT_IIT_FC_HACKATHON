@@ -69,8 +69,8 @@ export default function Results({ results: initialResults, uploadData, genePanel
                 gene,
                 diplotype: pgx.diplotype || 'Unknown',
                 phenotype: pgx.phenotype || 'Unknown',
-                genetic_phenotype: pgx.genetic_phenotype || pgx.phenotype || 'Unknown',
-                active_inhibitor: pgx.active_inhibitor,
+                genetic_phenotype: r.quality_metrics?.ui_genetic_phenotype || pgx.genetic_phenotype || pgx.phenotype || 'Unknown',
+                active_inhibitor: r.quality_metrics?.ui_active_inhibitor || pgx.active_inhibitor,
                 variant_count: (pgx.detected_variants || []).length,
                 summary: `${gene} metabolizer status based on detected variants`,
                 variants: pgx.detected_variants || [],
@@ -200,6 +200,46 @@ export default function Results({ results: initialResults, uploadData, genePanel
                             </section>
                         )}
 
+                        {/* ────────── Section 1.5: Multi-Drug Interaction Alerts ────────── */}
+                        {results.some(r => r.risk_assessment?.phenoconversion_occurred || r.quality_metrics?.ui_phenoconversion_occurred) && (
+                            <section className="mb-10">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="h-px flex-1 bg-[#E2E8F0]" />
+                                    <span className="section-label text-amber-700">⚠️ Interaction Alerts</span>
+                                    <div className="h-px flex-1 bg-[#E2E8F0]" />
+                                </div>
+                                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
+                                    <div className="flex items-start gap-4">
+                                        <div className="text-2xl mt-1">⚠️</div>
+                                        <div>
+                                            <h3 className="text-amber-900 font-bold mb-2">High-Risk Co-Medication Conflict Detected</h3>
+                                            <p className="text-amber-800 text-sm mb-4 leading-relaxed">
+                                                One or more of the prescribed concurrent medications is acting as a strong metabolic inhibitor.
+                                                This creates a <strong>drug-induced phenoconversion</strong>, effectively altering the patient's genetic metabolizer status
+                                                and invalidating standard prescribing guidelines for interacting drugs.
+                                            </p>
+                                            <div className="flex flex-col gap-2">
+                                                {results.filter(r => r.risk_assessment?.phenoconversion_occurred || r.quality_metrics?.ui_phenoconversion_occurred).map((r, i) => (
+                                                    <div key={i} className="bg-white px-4 py-3 rounded-xl border border-amber-200 flex items-center justify-between shadow-sm">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="font-bold text-[#0F172A]">{r.drug}</span>
+                                                            <span className="text-xs text-[#9CA3AF]">metabolized by {r.pharmacogenomic_profile?.primary_gene}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-xs font-bold">
+                                                            <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded">{r.quality_metrics?.ui_genetic_phenotype || r.pharmacogenomic_profile?.genetic_phenotype || 'NM'}</span>
+                                                            <span className="text-red-500">→</span>
+                                                            <span className="bg-red-100 text-red-700 px-2 py-1 rounded">PM</span>
+                                                            <span className="text-amber-600 ml-2">via {r.quality_metrics?.ui_active_inhibitor || r.pharmacogenomic_profile?.active_inhibitor || 'Inhibitor'}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                        )}
+
                         {/* ────────── Section 2: Drug Risk Assessment ────────── */}
                         <section className="mb-10">
                             <div className="flex items-center gap-3 mb-4">
@@ -214,20 +254,6 @@ export default function Results({ results: initialResults, uploadData, genePanel
                             </div>
                         </section>
 
-                        {/* ────────── Raw JSON ────────── */}
-                        <div className="bg-white border border-[#E2E8F0] rounded-2xl overflow-hidden">
-                            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E2E8F0] bg-[#F8FBFF]">
-                                <span className="text-xs font-bold uppercase tracking-widest text-[#9CA3AF]">
-                                    Raw JSON Output
-                                </span>
-                                <button className="btn-ghost text-xs py-1.5 px-3" onClick={copy}>
-                                    {copied ? '✓ Copied' : 'Copy'}
-                                </button>
-                            </div>
-                            <pre className="p-5 text-xs font-mono text-[#4B5563] leading-relaxed overflow-x-auto max-h-72">
-                                {JSON.stringify(results, null, 2)}
-                            </pre>
-                        </div>
                     </>
                 ) : (
                     <div className="text-center py-20 text-[#9CA3AF]">

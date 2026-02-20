@@ -11,12 +11,15 @@ const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
  * @param {string[]} concurrentMedications - e.g. ['PAROXETINE']
  * @returns {Promise<object>}              - Full analysis data object
  */
-export async function analyzeVCF({ file, patientCode, drugs, concurrentMedications = [] }) {
+export async function analyzeVCF({ file, patientCode, drugs, concurrentMedications = [], isPediatric = false, isPregnant = false }) {
     const form = new FormData();
     form.append('vcf_file', file);
     form.append('patient_code', patientCode || 'PATIENT_001');
     form.append('drugs', drugs.join(','));
     form.append('concurrent_medications', concurrentMedications.join(','));
+    form.append('is_pediatric', isPediatric ? 'true' : 'false');
+    form.append('is_pregnant', isPregnant ? 'true' : 'false');
+    form.append('fe', 'true');
 
     const res = await fetch(`${BASE}/analyze`, { method: 'POST', body: form });
     const json = await res.json();
@@ -33,7 +36,7 @@ export async function analyzeVCF({ file, patientCode, drugs, concurrentMedicatio
  * @returns {Promise<object>}
  */
 export async function getResultsByPatient(patientId) {
-    const res = await fetch(`${BASE}/results/${encodeURIComponent(patientId)}`);
+    const res = await fetch(`${BASE}/results/${encodeURIComponent(patientId)}?fe=true`);
     const json = await res.json();
     if (!res.ok || !json.success) throw new Error(json.error || json.detail?.error || 'Failed to fetch results');
     return json.data;

@@ -76,6 +76,8 @@ export default function Upload({ onNavigate, onResults }) {
     const [patientCode, setPatientCode] = useState('PATIENT_001');
     const [selectedDrugs, setSelectedDrugs] = useState([]);
     const [selectedMeds, setSelectedMeds] = useState([]);
+    const [isPediatric, setIsPediatric] = useState(false);
+    const [isPregnant, setIsPregnant] = useState(false);
     const [loading, setLoading] = useState(false);
     const [pipelineStep, setPipelineStep] = useState(0);
     const [toast, setToast] = useState(null);
@@ -118,6 +120,8 @@ export default function Upload({ onNavigate, onResults }) {
                 patientCode,
                 drugs: selectedDrugs,
                 concurrentMedications: selectedMeds,
+                isPediatric,
+                isPregnant,
             });
 
             clearInterval(ticker);
@@ -218,6 +222,40 @@ export default function Upload({ onNavigate, onResults }) {
                                     {d}
                                 </button>
                             ))}
+                        </div>
+                    </div>
+
+                    {/* ── Demographics & Clinical Context ── */}
+                    <div className="bg-white border border-[#E2E8F0] rounded-2xl overflow-hidden">
+                        <div className="px-5 py-4 border-b border-[#E2E8F0]">
+                            <h3 className="text-[#0F172A] text-base font-semibold mb-0.5" style={{ fontFamily: 'Fraunces,serif' }}>Clinical Demographics</h3>
+                            <p className="text-xs text-[#9CA3AF]">Enzyme activity often fluctuates during childhood or pregnancy</p>
+                        </div>
+                        <div className="px-5 py-5 flex flex-col gap-4">
+                            <label className="flex items-center gap-3 cursor-pointer">
+                                <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${isPediatric ? 'bg-[#3B82F6]' : 'bg-[#E2E8F0]'}`}>
+                                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${isPediatric ? 'translate-x-4' : 'translate-x-0'}`} />
+                                </div>
+                                <input type="checkbox" className="hidden" checked={isPediatric} onChange={e => {
+                                    setIsPediatric(e.target.checked);
+                                    if (e.target.checked) setIsPregnant(false);
+                                }} />
+                                <div>
+                                    <div className="text-sm font-semibold text-[#0F172A]">Pediatric Patient (≤ 12 years)</div>
+                                    <div className="text-xs text-[#6B7280]">CYP2D6 activity matures dynamically during childhood.</div>
+                                </div>
+                            </label>
+
+                            <label className={`flex items-center gap-3 cursor-pointer ${isPediatric ? 'opacity-50 pointer-events-none' : ''}`}>
+                                <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${isPregnant ? 'bg-[#3B82F6]' : 'bg-[#E2E8F0]'}`}>
+                                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${isPregnant ? 'translate-x-4' : 'translate-x-0'}`} />
+                                </div>
+                                <input type="checkbox" className="hidden" checked={isPregnant} disabled={isPediatric} onChange={e => setIsPregnant(e.target.checked)} />
+                                <div>
+                                    <div className="text-sm font-semibold text-[#0F172A]">Currently Pregnant</div>
+                                    <div className="text-xs text-[#6B7280]">Normal phenotypes may act as ultrastrapids due to metabolic induction.</div>
+                                </div>
+                            </label>
                         </div>
                     </div>
 

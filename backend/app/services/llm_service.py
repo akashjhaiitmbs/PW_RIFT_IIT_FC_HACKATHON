@@ -249,8 +249,7 @@ class LLMExplainer:
             response = await client.chat.completions.create(
                 model=_model_name(),
                 messages=messages,  # type: ignore[arg-type]
-                temperature=0.3,
-                max_tokens=800,
+                max_completion_tokens=800,
             )
             generation_time_ms = int((time.time() - t0) * 1000)
             raw_text = response.choices[0].message.content or ""

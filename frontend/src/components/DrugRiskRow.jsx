@@ -18,13 +18,24 @@ function riskMeta(label) {
  */
 export default function DrugRiskRow({ result }) {
     const [expanded, setExpanded] = useState(false);
+    const [standardDose, setStandardDose] = useState('');
 
     const risk = result.risk_assessment || {};
     const pgx = result.pharmacogenomic_profile || {};
     const rec = result.clinical_recommendation || {};
     const llm = result.llm_generated_explanation || {};
+    const metrics = result.quality_metrics || {};
+
     const meta = riskMeta(risk.risk_label);
     const confPct = Math.round((risk.confidence_score || 0) * 100);
+
+    // Dose calculation logic
+    let doseModifier = 1.0;
+    const riskLower = (risk.risk_label || '').toLowerCase();
+    if (riskLower === 'toxic' || riskLower === 'ineffective') doseModifier = 0.0;
+    else if (riskLower.includes('adjust')) doseModifier = 0.5;
+
+    const calculatedDose = standardDose ? (parseFloat(standardDose) * doseModifier).toFixed(1) : null;
 
     return (
         <div className="drug-risk-row-wrapper">
@@ -69,7 +80,7 @@ export default function DrugRiskRow({ result }) {
                     </div>
 
                     {/* Phenoconversion indicator */}
-                    {risk.phenoconversion_occurred && (
+                    {(risk.phenoconversion_occurred || metrics.ui_phenoconversion_occurred) && (
                         <span className="conv-badge text-[10px]">⚡</span>
                     )}
 
@@ -106,6 +117,47 @@ export default function DrugRiskRow({ result }) {
                         )}
                     </div>
 
+                    {/* Dose Calculator */}
+                    <div className="mb-5 bg-white border border-[#E2E8F0] rounded-xl p-4 shadow-sm">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-[#0F172A]">Interactive Dose Calculator</span>
+                                <span className="text-[10px] uppercase font-bold tracking-widest text-[#3B82F6] bg-[#EFF6FF] px-2 py-0.5 rounded-full">New</span>
+                            </div>
+                            <span className="text-xs text-[#9CA3AF]">Based on PGx Risk Label</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="flex-1">
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-[#6B7280] mb-1">Standard Dose (mg)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    className="w-full text-sm border border-[#E2E8F0] rounded-lg px-3 py-2 bg-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                                    placeholder="e.g. 50"
+                                    value={standardDose}
+                                    onChange={e => setStandardDose(e.target.value)}
+                                />
+                            </div>
+                            <div className="flex items-center justify-center pt-4 text-[#9CA3AF]">✕</div>
+                            <div className="flex-1">
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-[#6B7280] mb-1">PGx Modifier</label>
+                                <div className="w-full text-sm border border-[#E2E8F0] rounded-lg px-3 py-2 bg-[#F0FDF4] text-[#16A34A] font-bold text-center">
+                                    {doseModifier}x
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-center pt-4 text-[#9CA3AF]">=</div>
+                            <div className="flex-1">
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-[#6B7280] mb-1">Adjusted Dose</label>
+                                <div className={`w-full text-lg border rounded-lg px-3 py-1 font-bold text-center ${calculatedDose ? 'bg-[#EFF6FF] border-[#BFDBFE] text-[#1E3A8A]' : 'bg-[#F8FAFC] border-[#E2E8F0] text-[#9CA3AF]'}`}>
+                                    {calculatedDose ? `${calculatedDose} mg` : '—'}
+                                </div>
+                            </div>
+                        </div>
+                        {doseModifier === 0 && (
+                            <p className="mt-3 text-xs text-red-600 font-medium">⚠️ 0x Modifier applied: This drug is considered Toxic or Ineffective for this patient. Consider alternatives.</p>
+                        )}
+                    </div>
+
                     {/* Gene Track */}
                     <GeneTrack
                         gene={pgx.primary_gene}
@@ -113,14 +165,14 @@ export default function DrugRiskRow({ result }) {
                     />
 
                     {/* Phenoconversion */}
-                    {risk.phenoconversion_occurred && (
+                    {(risk.phenoconversion_occurred || metrics.ui_phenoconversion_occurred) && (
                         <div className="mt-5">
                             <PhenoconversionPanel
                                 gene={pgx.primary_gene}
                                 diplotype={pgx.diplotype}
-                                geneticPhenotype={pgx.genetic_phenotype}
+                                geneticPhenotype={metrics.ui_genetic_phenotype || pgx.genetic_phenotype}
                                 clinicalPhenotype={pgx.phenotype}
-                                inhibitor={pgx.active_inhibitor}
+                                inhibitor={metrics.ui_active_inhibitor || pgx.active_inhibitor}
                             />
                         </div>
                     )}

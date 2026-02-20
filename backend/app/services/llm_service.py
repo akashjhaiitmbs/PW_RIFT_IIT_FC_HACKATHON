@@ -137,10 +137,11 @@ def _build_messages(
     system_prompt = (
         "You are PharmaGuard AI, a Clinical Pharmacogenomics assistant. "
         "You explain drug-gene interactions to healthcare providers. "
-        "You must answer ONLY using the provided guideline excerpts. "
-        "If information is not in the excerpts, say \"Insufficient guideline data available.\"\n\n"
+        "Use the provided CPIC guideline excerpts if available. If no specific guidelines are provided, "
+        "rely strictly on standard, established clinical pharmacological knowledge for the drug/gene interaction. "
+        "Do not refuse to answer; provide a helpful, scientifically grounded summary. "
         "Never recommend a specific prescription decision. "
-        "Use language like \"Guidelines suggest considering...\" or \"Evidence supports...\"."
+        "Use language like \"Guidelines or standard evidence suggest considering...\"."
     )
 
     user_prompt = f"""CONTEXT (Retrieved CPIC Guidelines):
@@ -158,7 +159,7 @@ PATIENT DATA:
 Generate a clinical explanation with exactly these four sections:
 1. SUMMARY: 1-2 sentence high-level alert for a clinician.
 2. MECHANISM: Explain the biological reason why this drug-gene combination produces this risk.
-3. GUIDELINE: State what the CPIC/FDA guideline recommends, citing from the provided context.
+3. GUIDELINE: State what the CPIC/FDA guideline recommends (or standard clinical practice if no excerpts provided).
 4. PHENOCONVERSION NOTE: If phenoconversion occurred, explain how {active_inhibitor or 'the inhibitor'} changed the effective phenotype. If not, write "Not applicable."
 """
 
